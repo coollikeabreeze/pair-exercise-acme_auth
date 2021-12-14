@@ -13,7 +13,7 @@
         super();
         this.state = {
           username: '',
-          password: ''
+          password: '',
         };
         this.onChange = this.onChange.bind(this);
         this.onSubmit = this.onSubmit.bind(this);
@@ -47,10 +47,12 @@
       constructor(){
         super();
         this.state = {
-          auth: {}
+          auth: {},
+          notes: []
         };
         this.signIn = this.signIn.bind(this);
         this.logout = this.logout.bind(this);
+        this.getNotes = this.getNotes.bind(this);
       }
       logout(){
         window.localStorage.removeItem('token');
@@ -64,19 +66,35 @@
               authorization: token
             }
           });
+          // console.log("hi",response)
           this.setState({ auth: response.data });
+          // console.log(this.state)
+          this.getNotes(this.state.auth.id)
         }
       }
       componentDidMount(){
+        
         this.attemptTokenLogin();
+        // console.log(this.state)
+        // this.getNotes(this.state.auth.id)
+        
       }
       async signIn(credentials){
-        let response = await axios.post('/api/auth', credentials);
-        const { token } = response.data;
-        window.localStorage.setItem('token', token);
+        let {data} = await axios.post('/api/auth', credentials);
+        // const { token } = response.data;
+        // console.log('hi', data)
+        window.localStorage.setItem('token', data);
         this.attemptTokenLogin();
       }
+
+      async getNotes (id) {
+        let { data : response } = await axios.get(`/api/users/${id}/notes`);
+        console.log(response)
+        this.setState({notes:response});
+      }
+
       render(){
+        // console.log(this.state)
         const { auth } = this.state;
         const { signIn, logout } = this;
         if(!auth.id){
@@ -87,6 +105,9 @@
             <div>
               Welcome { auth.username }
               <button onClick={ logout }>Logout</button>
+              {this.state.notes.map(item=> (
+                <p key={item.id}>{item.text}</p>
+              ))}
             </div>
           );
         }

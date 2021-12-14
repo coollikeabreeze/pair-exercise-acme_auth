@@ -6,6 +6,7 @@ const config = {
 };
 
 const jwt = require('jsonwebtoken');
+const { user } = require('pg/lib/defaults');
 
 const tokenSecret = 'SECRET_PHRASE'
 
@@ -19,13 +20,28 @@ const User = conn.define('user', {
   password: STRING
 });
 
+const Note = conn.define('note', {
+  text: STRING,
+});
+
+Note.belongsTo(User);
+User.hasMany(Note);
+
+
+
 User.byToken = async(token)=> {
   try {
+    console.log({token})
+    console.log(tokenSecret)
     const verifiedToken = jwt.verify(token, tokenSecret);
-    const user = await User.findByPk(verifiedToken.id);
-    if(user){
-      return user;
+    
+    
+    if(verifiedToken){
+      const user = await User.findByPk(verifiedToken.id);
+      // console.log('user ', verifiedToken)
+      return user
     }
+    
     const error = Error('bad credentials');
     error.status = 401;
     throw error;
@@ -45,15 +61,15 @@ User.authenticate = async({ username, password })=> {
   });
 
   const match = await bcrypt.compare(password, user.password);
-  console.log(match)
+  // console.log(match)
 
-  if(user && match){
-    const token = jwt.sign({
-      id: user.id,
-      username: user.username
-    }, tokenSecret)
-    console.log("token", token)
-    return token
+  if(match){
+    // const token = jwt.sign({
+    //   id: user.id,
+    //   username: user.username
+    // }, tokenSecret)
+    // console.log("token", token)
+    return user
   }
   const error = Error('bad credentials');
   error.status = 401;
@@ -70,6 +86,27 @@ const syncAndSeed = async()=> {
   const [lucy, moe, larry] = await Promise.all(
     credentials.map( credential => User.create(credential))
   );
+
+  const notes = [
+    { text: 'text1'},
+    { text: 'text2'},
+    { text: 'text3'},
+    { text: 'text4'},
+    { text: 'text5'},
+    { text: 'text6'},
+    { text: 'text7'},
+  ];
+
+  const [ text1,text2,text3,text4,text5,text6,text7 ] = await Promise.all(
+    notes.map( item => Note.create(item))
+  );
+  await lucy.setNotes([text1,text2]);
+  // await lucy.setNotes(text2);
+  await moe.setNotes([text3,text4]);
+  // await moe.setNotes();
+  await larry.setNotes([text5,text6,text7]);
+  // await larry.setNotes();
+  // await larry.setNotes();
   return {
     users: {
       lucy,
@@ -83,6 +120,12 @@ User.prototype.validPassword = async function(password) {
   return await bcrypt.compare(password, this.password);
 }
 
+User.prototype.generateToken = async function() {
+  const token = await jwt.sign({id: user.id}, tokenSecret)
+  // console.log(token)
+  return (token)
+}
+
 User.beforeCreate(user => {
     const salt = bcrypt.genSaltSync(5);
     user.password = bcrypt.hashSync(user.password, salt);
@@ -91,6 +134,7 @@ User.beforeCreate(user => {
 module.exports = {
   syncAndSeed,
   models: {
-    User
+    User,
+    Note
   }
 };
